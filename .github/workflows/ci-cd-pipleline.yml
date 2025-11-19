@@ -1,0 +1,70 @@
+# ...existing code...
+name: CI/CD Pipeline
+
+# Trigger on pushes or PRs to main and develop branches
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+    branches:
+      - master
+      - develop
+
+# Prevent duplicate runs for the same ref, cancel in-progress when a new run starts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Use the latest Ubuntu runner
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install the targeted .NET SDK (9.x)
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      # Cache NuGet packages to speed up subsequent runs
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: nuget-packages-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-packages-${{ runner.os }}-
+
+      # Restore dependencies (uses cache when available)
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # Build the solution in Release configuration
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      # Run unit tests; adjust filters or settings as needed
+      - name: Test
+        run: dotnet test --no-build --verbosity normal
+
+      # Publish the app to ./publish (artifact ready for deployment or container build)
+      - name: Publish
+        run: dotnet publish -c Release -o ./publish --no-build
+
+      # Upload the published output as a workflow artifact for downstream jobs or manual download
+      - name: Upload publish artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-app
+          path: ./publish
+# ...existing code...
