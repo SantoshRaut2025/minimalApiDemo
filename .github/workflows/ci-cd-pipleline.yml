@@ -68,3 +68,31 @@ jobs:
           name: published-app
           path: ./publish
 # ...existing code...
+  deploy:
+    name: Deploy to local machine
+    needs: build
+    # This requires a self-hosted runner registered on your local machine.
+    # Make sure the runner has the labels "self-hosted" and "windows" (or adjust labels below).
+    runs-on: [self-hosted, windows]
+    # Only deploy when changes are pushed to the master branch
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Download published artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: published-app
+          path: ./publish_artifact
+
+      - name: Deploy files to local path (PowerShell)
+        shell: pwsh
+        run: |
+          # Target directory on the self-hosted Windows machine (adjust as needed)
+          $dest = 'C:\Deploy\ProductServiceApiDemo'
+          Write-Host "Creating target directory: $dest"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+          Write-Host "Copying published files to target directory..."
+          Copy-Item -Path ./publish_artifact/* -Destination $dest -Recurse -Force
+
+          Write-Host "Deployment finished. Files copied to $dest"
+# ...existing code...
